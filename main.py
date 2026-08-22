@@ -1,31 +1,49 @@
+from langchain_core.tools import tool
 from dotenv import load_dotenv
-from langchain_core.prompts import PromptTemplate
-from langchain_openai import ChatOpenAI
 from langchain_ollama import ChatOllama
+from langchain.agents import create_agent
+from langchain_core.messages import HumanMessage
+from tavily import TavilyClient
+
 
 load_dotenv()
+
+
+tavily = TavilyClient()
+
+@tool
+def search(query: str) -> str:
+    """
+    Tool that searches over interet
+    Args:
+        query: The query to search for
+    Returns:
+        The search result
+    """
+
+    print(f"ssearching for {query}")
+    return tavily.search(query=query)
+
 def main():
-    print("Hello from langchain-course!")
-    information = """
-        Phạm Nhật Vượng (sinh ngày 5 tháng 8 năm 1968) là một doanh nhân kiêm tỷ phú người Việt Nam. Ông là nhà sáng lập và Chủ tịch Hội đồng quản trị của Tập đoàn Vingroup, tập đoàn tư nhân đa ngành có vốn hóa lớn nhất Việt Nam.[1]
-
-Được ghi nhận là tỷ phú đô la Mỹ đầu tiên trên sàn chứng khoán Việt Nam,[3] ông hiện là người giàu nhất Việt Nam và cũng là người giàu nhất Đông Nam Á tính đến tháng 4 năm 2026, với giá trị tài sản ròng ước tính khoảng 22,1 tỷ USD theo Forbes
-    """
     
-    summary_template = """
-        given the information {information} about a person, create:
-        1. A short summary
-        2. two intesting facts about them
-    """
-    summary_prompt_template = PromptTemplate(
-        input_variables=["information"], template=summary_template
-    )
     # llm = ChatOpenAI(temperature=0, model="gpt-4o-mini")
-    llm = ChatOllama(temperature=0, model="gemma3:270m")
-    chain = summary_prompt_template | llm
-
-    response = chain.invoke(input={"information": information})
-    print(response.content)
+    # llm = ChatOllama(temperature=0, model="gemma3:270m")  # This model doesn't support tools
+    
+    # Use llama3.1 which has better tool calling support than llama3.2
+    # Make sure to run: ollama pull llama3.1
+    llm = ChatOllama(
+        temperature=0, 
+        model="llama3.2",  # More reliable for tool calling than llama3.2
+        num_predict=512,   # Ensure sufficient tokens for response
+    )
+    
+    tools = [search]
+    agent = create_agent(model=llm, tools=tools)
+    
+    print("Invoking agent...")
+    response = agent.invoke({"messages": [HumanMessage(content="What is the weather in Tokyo")]})
+    print("\nResponse:")
+    print(response)
 
 if __name__ == "__main__":
     main()
